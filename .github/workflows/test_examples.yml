@@ -1,0 +1,87 @@
+name: Test RainbowNeko Examples
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  test_cpu_examples:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: 3.12
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+        pip install -e .
+        pip install webdataset # For webdataset example
+    - name: Test Image Classification Example
+      run: |
+        cd example/image_classification
+        python data_prep.py
+        cd ../.. # Back to root
+        neko_train --cfg example/image_classification/train_config.py
+        # For inference, we need a trained model. Assuming train_config.py saves to 'output'
+        # Create dummy checkpoint in root output
+        mkdir -p output/ckpt
+        touch output/ckpt/dummy_model.pt
+        # The infer_config.py is already updated to point to dummy_model.pt
+        neko_run --cfg example/image_classification/infer_config.py
+    - name: Test Custom Data Handling Example
+      run: |
+        cd example/custom_data_handling
+        python main_custom_data.py --cfg train_custom_data_config.py
+        cd ../.. # Back to root
+        neko_train --cfg example/custom_data_handling/train_custom_data_config.py
+    - name: Test LoRA Finetuning Example
+      run: |
+        # Generate dummy data for image_classification first, as it's used by lora_finetuning
+        cd example/image_classification
+        python data_prep.py
+        cd ../.. # Back to root
+        neko_train --cfg example/lora_finetuning/lora_train_config.py
+    - name: Test WebDataset Data Loading Example
+      run: |
+        cd example/webdataset_data_loading
+        python create_webdataset.py
+        cd ../.. # Back to root
+        neko_train --cfg example/webdataset_data_loading/webdataset_train_config.py
+    - name: Test EMA Training Trick Example
+      run: |
+        # Generate dummy data for image_classification first, as it's used by ema_training_trick
+        cd example/image_classification
+        python data_prep.py
+        cd ../.. # Back to root
+        neko_train --cfg example/ema_training_trick/ema_train_config.py
+
+  # DeepSpeed 示例通常需要 GPU 环境，这里仅作骨架，实际运行需要 self-hosted runner 或其他 GPU 支持的 runner
+  # test_deepspeed_example:
+  #   runs-on: [self-hosted, gpu] # 需要有 GPU 的 self-hosted runner
+  #   steps:
+  #   - uses: actions/checkout@v4
+  #   - name: Set up Python 3.9
+  #     uses: actions/setup-python@v5
+  #     with:
+  #       python-version: 3.9
+  #   - name: Install DeepSpeed dependencies
+  #     run: |
+  #       python -m pip install --upgrade pip
+  #       pip install -r requirements.txt
+  #       # 安装 PyTorch 和 DeepSpeed，需要根据 GPU 环境选择正确版本
+  #       pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118 # 示例CUDA 11.8
+  #       pip install deepspeed
+  #       pip install -e .
+  #   - name: Test DeepSpeed Example
+  #     run: |
+  #       cd example/deepspeed_distributed_training
+  #       # DeepSpeed 命令通常需要多卡环境，这里仅作示例
+  #       # deepspeed --num_gpus=2 main_deepspeed.py --cfg train_deepspeed_config.py

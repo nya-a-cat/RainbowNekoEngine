@@ -1218,3 +1218,5 @@ fabric.properties
 *.pt
 /runs
 /YOLOv8
+.roo/mcp.json
+.gitignore
